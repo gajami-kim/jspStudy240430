@@ -1,0 +1,28 @@
+<%@ page language="java" contentType="text/html; charset=UTF-8"
+    pageEncoding="UTF-8"%>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Insert title here</title>
+</head>
+<body>
+<h1>My Page Modify</h1>
+	<!-- readonly는 읽기만 / 데이터 보낼수있음 -->
+	<!-- disabled는 읽기만 / 데이터 보내지않음 ! -->
+	<form action="/memb/update" method="post">
+		id :    <input type="text" name="id" value="${ses.id }" readonly="readonly"> <br>
+		pwd :   <input type="text" name="pwd" value="${ses.pwd }"> <br>
+		email : <input type="text" name="email" value="${ses.email }"> <br>
+		age :   <input type="text" name="age" value="${ses.age }"> <br>
+		phone : <input type="text" name="phone" value="${ses.phone }"> <br>
+		regdate : <input type="text" name="regdate" value="${ses.regdate }" disabled="disabled"><br>
+		lastLogin : <input type="text" name="lastlogin" value="${ses.lastlogin }" disabled="disabled">
+		<br>
+		<button type="submit">수정</button> 
+	</form>
+	<br>
+	<!-- button의 기본타입은 submit / type을 submit으로 주고 a태그로 링크를 달면 button을 눌렀을 때 경로가 2가지가 됨 => 오류발생 -->
+	<a href="/memb/delete"> <button type="button">회원탈퇴</button> </a>
+</body>
+</html>

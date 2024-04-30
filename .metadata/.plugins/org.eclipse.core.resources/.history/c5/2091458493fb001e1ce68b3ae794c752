@@ -1,0 +1,212 @@
+package controller;
+
+import java.io.IOException;
+import java.util.List;
+
+import javax.servlet.RequestDispatcher;
+import javax.servlet.ServletException;
+import javax.servlet.annotation.WebServlet;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import domain.MemberVO;
+import service.MemberService;
+import service.MemberServiceImpl;
+
+
+@WebServlet("/memb/*")
+public class MemberController extends HttpServlet {
+	private static final long serialVersionUID = 1L;
+	//로그객체
+    private static final Logger log = LoggerFactory.getLogger(MemberController.class);
+    //rdp 객체 requestDispatcher : 요청결과에 대한 응답 데이터를 jsp로 전송
+    private RequestDispatcher rdp;
+    //destPage : 목적지 주소
+    private String destPage = "";
+    private int isOk;
+    //service 생성
+    private MemberService mbv; //service->interface
+    
+    public MemberController() {
+    	mbv = new MemberServiceImpl(); //service->class(구현체)
+    }
+
+	
+	protected void service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+		// 통합처리
+		request.setCharacterEncoding("utf-8");
+		response.setCharacterEncoding("utf-8");
+		response.setContentType("text/html; charset=UTF-8");
+		
+		String uri = request.getRequestURI();
+		log.info(uri);
+		
+		String path = uri.substring(uri.lastIndexOf("/")+1);
+		log.info(path);
+		
+		switch(path) {
+		case "join":
+			//index의 join버튼을 클릭했을 때
+			destPage ="/member/join.jsp";
+			break;
+		case "register":
+			try {
+				//jsp에서 보낸 파라미터값
+				String id = request.getParameter("id");
+				String pwd = request.getParameter("pwd");
+				String email = request.getParameter("email");
+				int age = Integer.parseInt(request.getParameter("age"));
+				String phone = request.getParameter("phone");
+				
+				MemberVO mvo = new MemberVO(id,pwd,email,age,phone);
+				log.info("join mvo >>>>>>>>>> {}",mvo);
+				int isOk = mbv.register(mvo);
+				log.info("join >>>>>> {}", (isOk>0?"성공":"실패"));
+				destPage = "/index.jsp";
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			break;	
+		case "login":
+			try {
+				//jsp에서 보낸 id,pwd 받기
+				//id, pwd를 객체로 만들어 db로 전송(같은 id/pwd를 갖는 객체가 있는지 확인)
+				//같은 값을 갖는 객체가 있다면 로그인(세션객체에 값을 저장)
+				//session : 모든 jsp에서 공유되는 객체 / 브라우저가 종료되면 삭제
+				String id = request.getParameter("id");
+				String pwd = request.getParameter("pwd");
+				MemberVO mvo = new MemberVO(id, pwd);
+				
+				log.info("login >>>>>> {}",mvo);
+				//id와 pwd가 일치하는 객체 전부를 리턴받음
+				MemberVO loginMvo = mbv.login(mvo);
+				log.info("return loginMvo >>>>>> {}",loginMvo);
+				
+				//loginMVO 객체가 없다면 loginMvo = null;
+				if(loginMvo!=null) {
+					//session에 저장
+					//세션 객체 가져오기
+					HttpSession ses = request.getSession();
+					ses.setAttribute("ses", loginMvo);
+					ses.setMaxInactiveInterval(10*60); //로그인 유지시간 초단위로 설정(10분)
+				} else {
+					//로그인객체가 없다면
+					//index.jsp로 메시지 전송
+					request.setAttribute("msg_login", -1);
+				}
+				destPage = "/index.jsp";
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			break;
+		case "logout":
+			try {
+				//session의 값이 있다면 해당 세션 연결 끊기
+				HttpSession ses = request.getSession();
+				
+				MemberVO mvo = (MemberVO)ses.getAttribute("ses");
+				log.info("ses에서 추출한 mvo >>>> {}",mvo);
+				
+				//lastLogin update
+				int isOk = mbv.lastLogin(mvo.getId());
+				log.info("lastLogin >>>>>> {}", (isOk>0?"성공":"실패"));
+				ses.invalidate(); //세션 무효화(세션 끊기)
+				destPage ="/index.jsp";
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			break;
+		case "list":
+			try {
+				List<MemberVO> list = mbv.getList();
+				request.setAttribute("list", list);
+				destPage = "/member/list.jsp";
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			break;
+		case "modify":
+			//회원가입 수정을 누르면 해당 case로 이동 -> modify.jsp를 띄워줌
+			//페이지이동만..
+			try {
+				destPage="/member/modify.jsp";
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			break;
+		case "update":
+			//modify.jsp에서 수정버튼을 눌렀을 때 가져오는 값
+			try {
+				String id = request.getParameter("id");
+				String pwd = request.getParameter("pwd");
+				String email = request.getParameter("email");
+				int age = Integer.parseInt(request.getParameter("age"));
+				String phone = request.getParameter("phone");
+				
+				MemberVO mvo = new MemberVO(id, pwd,email,age,phone);
+				
+				log.info("modify mvo>>>>{}",mvo);
+				int isOk = mbv.modify(mvo);
+				log.info("modify >>>>>> {}", (isOk>0?"성공":"실패"));
+				if(isOk>0) {
+					//index페이지로감
+					request.setAttribute("msg_update", 1);
+					//업데이트 후 세션 끊기
+					HttpSession ses = request.getSession(); //로그인한 세션을 가지고 옴
+					ses.invalidate(); //세션 끊기
+					//수정한 뒤 이동할 페이지 주소(재로그인을 위해)
+					destPage = "/index.jsp";
+				} else {					
+					request.setAttribute("msg_update", -1); //세션끊기 실패했을 경우
+					destPage ="modify";
+					//destPage = "/member/modify.jsp" 가능
+				}
+				
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			break;
+		case "delete":
+			try {
+				HttpSession ses = request.getSession(); //로그인된 세션 호출
+				String id = ((MemberVO)ses.getAttribute("ses")).getId();
+				int isOk = mbv.remove(id);
+				
+				log.info("isOk{}",isOk);
+				log.info("remove >>>>>> {}", (isOk>0?"성공":"실패"));
+				//삭제는 DB에서 삭제를 뜻함(세션이 지워지는것과 상관X)
+				//세션을 별도로 삭제(끊기)
+				if(isOk>0) {
+					request.setAttribute("msg_update", 1);
+					ses.invalidate();
+				}
+				destPage = "/index.jsp";
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			break;
+		}
+		
+		//목적지 이동설정
+		rdp = request.getRequestDispatcher(destPage);
+		rdp.forward(request, response);
+	}
+
+	
+	protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+		// method get으로 오는 처리
+		service(request,response);
+	}
+
+	
+	protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+		// method post로 오는 처리
+		service(request, response);
+	}
+
+}
